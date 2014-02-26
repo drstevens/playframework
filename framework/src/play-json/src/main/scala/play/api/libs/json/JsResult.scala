@@ -191,7 +191,7 @@ object JsResult {
     def map[A, B](m: JsResult[A], f: A => B): JsResult[B] = m.map(f)
 
     def apply[A, B](mf: JsResult[A => B], ma: JsResult[A]): JsResult[B] = (mf, ma) match {
-      case (JsSuccess(f, _), JsSuccess(a, _)) => JsSuccess(f(a))
+      case (JsSuccess(f, pf), JsSuccess(a, pa)) => JsSuccess(f(a)).repath(pf).repath(pa)
       case (JsError(e1), JsError(e2)) => JsError(JsError.merge(e1, e2))
       case (JsError(e), _) => JsError(e)
       case (_, JsError(e)) => JsError(e)
