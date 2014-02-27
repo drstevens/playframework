@@ -52,7 +52,7 @@ trait Reads[A] {
   def compose[B <: JsValue](rb: Reads[B]): Reads[A] =
     Reads[A] { js =>
       rb.reads(js) match {
-        case JsSuccess(b, p) => this.reads(b).repath(p)
+        case JsSuccess(b) => this.reads(b)
         case JsError(e) => JsError(e)
       }
     }
@@ -86,9 +86,9 @@ object Reads extends ConstraintReads with PathReads with DefaultReads {
     val app = a
     def |[A, B >: A](alt1: Reads[A], alt2: Reads[B]): Reads[B] = new Reads[B] {
       def reads(js: JsValue) = alt1.reads(js) match {
-        case r @ JsSuccess(_, _) => r
+        case r @ JsSuccess(_) => r
         case r @ JsError(es1) => alt2.reads(js) match {
-          case r2 @ JsSuccess(_, _) => r2
+          case r2 @ JsSuccess(_) => r2
           case r2 @ JsError(es2) => JsError(JsError.merge(es1, es2))
         }
       }
@@ -424,7 +424,7 @@ trait DefaultReads {
         val r = m.map {
           case (key, value) =>
             fromJson[V](value)(fmtv) match {
-              case JsSuccess(v, _) => Right((key, v, value))
+              case JsSuccess(v) => Right((key, v, value))
               case JsError(e) =>
                 hasErrors = true
                 Left(e.map { case (p, valerr) => (JsPath \ key) ++ p -> valerr })
@@ -456,7 +456,7 @@ trait DefaultReads {
         // the aim is to find all errors prod then to merge them all
         val r = ts.zipWithIndex.map {
           case (elt, idx) => fromJson[A](elt)(ra) match {
-            case JsSuccess(v, _) => Right(v)
+            case JsSuccess(v) => Right(v)
             case JsError(e) =>
               hasErrors = true
               Left(e.map { case (p, valerr) => (JsPath(idx)) ++ p -> valerr })

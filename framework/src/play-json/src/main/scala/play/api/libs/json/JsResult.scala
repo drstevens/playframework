@@ -6,7 +6,7 @@ package play.api.libs.json
 import Json._
 import play.api.data.validation.ValidationError
 
-case class JsSuccess[T](value: T, path: JsPath = JsPath()) extends JsResult[T] {
+case class JsSuccess[T](value: T) extends JsResult[T] {
   def get: T = value
 }
 
@@ -73,12 +73,12 @@ sealed trait JsResult[+A] { self =>
   def isError: Boolean = this.isInstanceOf[JsError]
 
   def fold[X](invalid: Seq[(JsPath, Seq[ValidationError])] => X, valid: A => X): X = this match {
-    case JsSuccess(v, _) => valid(v)
+    case JsSuccess(v) => valid(v)
     case JsError(e) => invalid(e)
   }
 
   def map[X](f: A => X): JsResult[X] = this match {
-    case JsSuccess(v, path) => JsSuccess(f(v), path)
+    case JsSuccess(v) => JsSuccess(f(v))
     case e: JsError => e
   }
 
@@ -100,12 +100,12 @@ sealed trait JsResult[+A] { self =>
   }
 
   def flatMap[X](f: A => JsResult[X]): JsResult[X] = this match {
-    case JsSuccess(v, path) => f(v).repath(path)
+    case JsSuccess(v) => f(v)
     case e: JsError => e
   }
 
   def foreach(f: A => Unit): Unit = this match {
-    case JsSuccess(a, _) => f(a)
+    case JsSuccess(a) => f(a)
     case _ => ()
   }
 
@@ -113,19 +113,19 @@ sealed trait JsResult[+A] { self =>
 
   final class WithFilter(p: A => Boolean) {
     def map[B](f: A => B): JsResult[B] = self match {
-      case JsSuccess(a, path) =>
-        if (p(a)) JsSuccess(f(a), path)
+      case JsSuccess(a) =>
+        if (p(a)) JsSuccess(f(a))
         else JsError()
       case e: JsError => e
     }
     def flatMap[B](f: A => JsResult[B]): JsResult[B] = self match {
-      case JsSuccess(a, path) =>
-        if (p(a)) f(a).repath(path)
+      case JsSuccess(a) =>
+        if (p(a)) f(a)
         else JsError()
       case e: JsError => e
     }
     def foreach(f: A => Unit): Unit = self match {
-      case JsSuccess(a, _) if p(a) => f(a)
+      case JsSuccess(a) if p(a) => f(a)
       case _ => ()
     }
     def withFilter(q: A => Boolean) = new WithFilter(a => p(a) && q(a))
@@ -133,39 +133,39 @@ sealed trait JsResult[+A] { self =>
 
   //def rebase(json: JsValue): JsResult[A] = fold(valid = JsSuccess(_), invalid = (_, e, g) => JsError(json, e, g))
   def repath(path: JsPath): JsResult[A] = this match {
-    case JsSuccess(a, p) => JsSuccess(a, path ++ p)
+    case JsSuccess(a) => JsSuccess(a)
     case JsError(es) => JsError(es.map { case (p, s) => path ++ p -> s })
   }
 
   def get: A
 
   def getOrElse[AA >: A](t: => AA): AA = this match {
-    case JsSuccess(a, _) => a
+    case JsSuccess(a) => a
     case JsError(_) => t
   }
 
   def orElse[AA >: A](t: => JsResult[AA]): JsResult[AA] = this match {
-    case s @ JsSuccess(_, _) => s
+    case s @ JsSuccess(_) => s
     case JsError(_) => t
   }
 
   def asOpt = this match {
-    case JsSuccess(v, _) => Some(v)
+    case JsSuccess(v) => Some(v)
     case JsError(_) => None
   }
 
   def asEither = this match {
-    case JsSuccess(v, _) => Right(v)
+    case JsSuccess(v) => Right(v)
     case JsError(e) => Left(e)
   }
 
   def recover[AA >: A](errManager: PartialFunction[JsError, AA]): JsResult[AA] = this match {
-    case JsSuccess(v, p) => JsSuccess(v, p)
+    case JsSuccess(v) => JsSuccess(v)
     case e: JsError => if (errManager isDefinedAt e) JsSuccess(errManager(e)) else this
   }
 
   def recoverTotal[AA >: A](errManager: JsError => AA): AA = this match {
-    case JsSuccess(v, p) => v
+    case JsSuccess(v) => v
     case e: JsError => errManager(e)
   }
 }
@@ -177,8 +177,8 @@ object JsResult {
   implicit def alternativeJsResult(implicit a: Applicative[JsResult]): Alternative[JsResult] = new Alternative[JsResult] {
     val app = a
     def |[A, B >: A](alt1: JsResult[A], alt2: JsResult[B]): JsResult[B] = (alt1, alt2) match {
-      case (JsError(e), JsSuccess(t, p)) => JsSuccess(t, p)
-      case (JsSuccess(t, p), _) => JsSuccess(t, p)
+      case (JsError(e), JsSuccess(t)) => JsSuccess(t)
+      case (JsSuccess(t), _) => JsSuccess(t)
       case (JsError(e1), JsError(e2)) => JsError(JsError.merge(e1, e2))
     }
     def empty: JsResult[Nothing] = JsError(Seq())
@@ -191,7 +191,7 @@ object JsResult {
     def map[A, B](m: JsResult[A], f: A => B): JsResult[B] = m.map(f)
 
     def apply[A, B](mf: JsResult[A => B], ma: JsResult[A]): JsResult[B] = (mf, ma) match {
-      case (JsSuccess(f, _), JsSuccess(a, _)) => JsSuccess(f(a))
+      case (JsSuccess(f), JsSuccess(a)) => JsSuccess(f(a))
       case (JsError(e1), JsError(e2)) => JsError(JsError.merge(e1, e2))
       case (JsError(e), _) => JsError(e)
       case (_, JsError(e)) => JsError(e)

@@ -645,7 +645,7 @@ object JsonValidSpec extends Specification {
       case class Test(field: String)
       val myFormat = (__ \ 'field).format[String].inmap(Test, unlift(Test.unapply))
 
-      myFormat.reads(Json.obj("field" -> "blabla")) must beEqualTo(JsSuccess(Test("blabla"), __ \ 'field))
+      myFormat.reads(Json.obj("field" -> "blabla")) must beEqualTo(JsSuccess(Test("blabla")))
       myFormat.reads(Json.obj()) must beEqualTo(JsError( __ \ 'field, "error.path.missing" ) )
       myFormat.writes(Test("blabla")) must beEqualTo(Json.obj("field" -> "blabla"))
     }
@@ -837,7 +837,7 @@ object JsonValidSpec extends Specification {
 
     "be a functor" in {
       "JsSuccess" in {
-        val res1: JsResult[String] = JsSuccess("foo", JsPath(List(KeyPathNode("bar"))))
+        val res1: JsResult[String] = JsSuccess("foo")
         res1.map(identity) must equalTo (res1)
       }
 
